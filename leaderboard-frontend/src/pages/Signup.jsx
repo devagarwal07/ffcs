@@ -133,7 +133,7 @@ function Signup() {
                 Student
               </label>
             </div>
-            <div className="flex items-center">
+            {/* <div className="flex items-center">
               <input
                 id="role"
                 name="role"
@@ -146,7 +146,7 @@ function Signup() {
               <label htmlFor="role" className="ml-2 block text-sm text-gray-300">
                 Admin
               </label>
-            </div>
+            </div> */}
           </div>
 
           <div>
