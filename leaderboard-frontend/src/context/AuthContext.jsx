@@ -1,86 +1,188 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { getProfile } from '../services/pointService';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(() => localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
+  
+  // Simple console logging for auth-related messages
+  const showAuthMessage = (type, message) => {
+    console[type === 'error' ? 'error' : 'log'](`[Auth] ${message}`);
+  };
 
+  // Check if token is expired
+  const isTokenExpired = useCallback(() => {
+    if (!token) return true;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.exp * 1000 < Date.now();
+    } catch (error) {
+      console.error('Error checking token expiration:', error);
+      return true;
+    }
+  }, [token]);
+
+  // Handle token refresh
+  const refreshToken = useCallback(async () => {
+    try {
+      const response = await fetch('http://localhost:5001/api/auth/refresh', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.token) {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        return data.token;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      return null;
+    }
+  }, [token]);
+
+  // Fetch user profile when token changes
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const response = await axios.get('http://localhost:5001/api/auth/profile', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUser(response.data);
-      } catch (error) {
+    const fetchUserProfile = async () => {
+      if (!token) {
         setUser(null);
-        setToken(null);
-        localStorage.removeItem('token');
+        setLoading(false);
+        return;
+      }
+
+      // Check if token is expired
+      if (isTokenExpired()) {
+        const newToken = await refreshToken();
+        if (!newToken) {
+          logout();
+          return;
+        }
+      }
+
+      try {
+        const userData = await getProfile();
+        setUser(userData);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        showAuthMessage('error', 'Failed to fetch user profile');
+        logout();
       } finally {
         setLoading(false);
       }
     };
 
-    if (token) {
-      fetchUser();
-    } else {
-      setLoading(false);
-    }
-  }, [token]);
+    fetchUserProfile();
+  }, [token, isTokenExpired, refreshToken]);
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('http://localhost:5001/api/auth/login', {
-        email,
-        password
+      const response = await fetch('http://localhost:5001/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
-      setToken(response.data.token);
-      localStorage.setItem('token', response.data.token);
-      
-      // Fetch user data after login
-      const userResponse = await axios.get('http://localhost:5001/api/auth/profile', {
-        headers: { Authorization: `Bearer ${response.data.token}` }
-      });
-      setUser(userResponse.data);
-      
-      return true;
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      localStorage.setItem('token', data.token);
+      setToken(data.token);
+      // Fetch user profile using the new token
+      try {
+        const profile = await getProfile();
+        setUser(profile);
+        return { token: data.token, user: profile };
+      } catch (e) {
+        // If profile fetch fails, clear token and bubble error
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+        throw new Error('Failed to load user profile after login');
+      }
     } catch (error) {
-      return false;
+      console.error('Login error:', error);
+      throw error;
     }
   };
 
-  const register = async (name, email, password, role) => {
+  const register = async (userData) => {
     try {
-      const response = await axios.post('http://localhost:5001/api/auth/register', {
-        name,
-        email,
-        password,
-        role
+      const response = await fetch('http://localhost:5001/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
       });
-      setToken(response.data.token);
-      localStorage.setItem('token', response.data.token);
-      return true;
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed');
+      }
+
+      return data;
     } catch (error) {
-      return false;
+      console.error('Registration error:', error);
+      throw error;
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
+  const logout = useCallback(() => {
+    // Call logout API if needed
+    fetch('http://localhost:5001/api/auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+    }).catch(console.error);
+    
+    // Clear local state
     localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  const updateUser = (userData) => {
+    setUser(prev => ({ ...prev, ...userData }));
+  };
+
+  const value = {
+    user,
+    token,
+    isTokenExpired,
+    loading,
+    login,
+    register,
+    logout,
+    setUser: updateUser,
+    setToken
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export const useAuth = () => {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };

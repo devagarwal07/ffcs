@@ -1,68 +1,36 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useToast } from '../hooks/useToast';
 
-function ProtectedRoute({ role, component: Component }) {
-  const { user, loading } = useAuth();
-  const { toasts, showToast } = useToast();
+function LoadingSpinner({ fullScreen = false }) {
+  return (
+    <div className={`flex items-center justify-center ${fullScreen ? 'h-screen' : 'h-full'}`}>
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>
+  );
+}
+
+function ProtectedRoute({ role, children }) {
+  const { user, loading, isTokenExpired } = useAuth();
+  const location = useLocation();
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <LoadingSpinner fullScreen />;
   }
 
-  if (!user) {
-    showToast('error', 'Please login first');
-    return <Navigate to="/login" replace />;
+  // Check authentication
+  if (!user || (isTokenExpired && isTokenExpired())) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Check if user has access to this route
-  if (role === 'admin' && user.role !== 'admin') {
-    showToast('error', 'Access denied');
-    return <Navigate to="/dashboard" replace />;
+  // Check authorization
+  if (role && user.role !== role) {
+    // Redirect to default route based on user role
+    const defaultRoute = user.role === 'admin' ? '/admin' : '/dashboard';
+    return <Navigate to={defaultRoute} replace />;
   }
 
-  // If user is admin and trying to access admin route, allow it
-  if (role === 'admin' && user.role === 'admin') {
-    return (
-      <div>
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`fixed bottom-4 right-4 p-4 rounded-lg ${
-              toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-            } text-white`}
-            style={{ zIndex: 1000 }}
-          >
-            {toast.message}
-          </div>
-        ))}
-        <Component />
-      </div>
-    );
-  }
-
-  // If user is student and trying to access student route, allow it
-  if (role === 'student' && user.role === 'student') {
-    return (
-      <div>
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`fixed bottom-4 right-4 p-4 rounded-lg ${
-              toast.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-            } text-white`}
-            style={{ zIndex: 1000 }}
-          >
-            {toast.message}
-          </div>
-        ))}
-        <Component />
-      </div>
-    );
-  }
-
-  // If none of the above conditions match, redirect to appropriate dashboard
-  return <Navigate to={user.role === 'admin' ? '/admin' : '/dashboard'} replace />;
+  // Render the protected component
+  return children;
 }
 
 export default ProtectedRoute;
