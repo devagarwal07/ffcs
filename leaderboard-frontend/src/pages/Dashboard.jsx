@@ -83,7 +83,7 @@ function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h1 className="text-2xl font-bold text-white tracking-wider">
-              Student <span className="text-blue-400">Dashboard</span>
+              IEEE RAS <span className="text-blue-400">Student Dashboard</span>
             </h1>
             <div className="flex items-center space-x-4">
               <button

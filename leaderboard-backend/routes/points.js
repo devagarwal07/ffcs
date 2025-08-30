@@ -7,7 +7,7 @@ const User = require('../models/User');
 // Get leaderboard
 router.get('/leaderboard', async (req, res) => {
   try {
-    const users = await User.find()
+    const users = await User.find({ role: 'student' })
       .sort({ points: -1 })
       .select('name points role');
     res.json(users);
@@ -20,7 +20,7 @@ router.get('/leaderboard', async (req, res) => {
 router.post('/request', auth, async (req, res) => {
   try {
     const { title, description, pointsRequested } = req.body;
-    
+
     const pointRequest = new PointRequest({
       student: req.user.id,
       title,
