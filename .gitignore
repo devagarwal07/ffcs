@@ -1,1 +1,3 @@
 node_modules
+/leaderboard-backend/.env
+/leaderboard-frontend/.env
