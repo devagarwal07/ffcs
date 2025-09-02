@@ -7,7 +7,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(() => localStorage.getItem('token') || null);
   const [loading, setLoading] = useState(true);
-  
+
   // Simple console logging for auth-related messages
   const showAuthMessage = (type, message) => {
     console[type === 'error' ? 'error' : 'log'](`[Auth] ${message}`);
@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
   // Handle token refresh
   const refreshToken = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/refresh', {
+      const response = await fetch('https://ieeeras-ffcs.onrender.com/api/auth/refresh', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/login', {
+      const response = await fetch('https://ieeeras-ffcs.onrender.com/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ export function AuthProvider({ children }) {
 
   const register = async (userData) => {
     try {
-      const response = await fetch('http://localhost:5001/api/auth/register', {
+      const response = await fetch('https://ieeeras-ffcs.onrender.com/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -145,11 +145,11 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     // Call logout API if needed
-    fetch('http://localhost:5001/api/auth/logout', {
+    fetch('https://ieeeras-ffcs.onrender.com/api/auth/logout', {
       method: 'POST',
       credentials: 'include',
     }).catch(console.error);
-    
+
     // Clear local state
     localStorage.removeItem('token');
     setToken(null);

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5001/api';
+const API_URL = 'https://ieeeras-ffcs.onrender.com/api';
 
 // Create axios instance with default config
 const axiosInstance = axios.create({
